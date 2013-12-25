@@ -15,3 +15,15 @@
 #    under the License.
 #
 # @author: Bob Melander, Cisco Systems, Inc.
+
+from neutron.plugins.cisco.l3.hosting_device_drivers import HostingDeviceDriver
+
+
+class DummyHostingDeviceDriver(HostingDeviceDriver):
+
+    def create_configdrive_files(self, context, mgmtport):
+        return {}
+
+    def delete_configdrive_files(self, context, mgmtport):
+        pass
+

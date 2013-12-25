@@ -27,3 +27,4 @@ oslo.config>=1.2.0
 oslo.rootwrap
 
 python-novaclient>=2.15.0
+ciscoconfparse

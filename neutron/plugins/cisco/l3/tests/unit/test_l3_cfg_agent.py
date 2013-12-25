@@ -125,9 +125,9 @@ class TestBasicRouterOperations(base.BaseTestCase):
     #     port_id = _uuid()
     #     router_id = _uuid()
     #     network_id = _uuid()
-    #     ri = l3_cfg_agent.RouterInfo(router_id, self.conf.root_helper,
+    #     ri = cfg_agent.RouterInfo(router_id, self.conf.root_helper,
     #                              self.conf.use_namespaces, None)
-    #     agent = l3_cfg_agent.L3NATAgent(HOSTNAME, self.conf)
+    #     agent = cfg_agent.L3NATAgent(HOSTNAME, self.conf)
     #     cidr = '99.0.1.9/24'
     #     mac = 'ca:fe:de:ad:be:ef'
     #     interface_name = agent.get_internal_device_name(port_id)

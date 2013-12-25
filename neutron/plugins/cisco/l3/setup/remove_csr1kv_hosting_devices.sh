@@ -1,12 +1,17 @@
 #!/bin/bash
 
+# osn is the name of Openstack network service, i.e.,
+# it should be either 'neutron' or 'quantum', for
+# release >=Havana and release <=Grizzly, respectively.
+osn=${1:-neutron}
+
 function delete_service_resources_by_name() {
     service=$1
     resource=$2
     name=$3
     local list_command="list --field=id --field=name"
     local delete_command="delete"
-    if [[ "$service" == "quantum" ]]; then
+    if [[ "$service" == "$osn" ]]; then
        list_command=$resource"-list --field=id --field=name"
        delete_command=$resource"-"$delete_command
     fi
@@ -30,22 +35,23 @@ function delete_service_resources_by_name() {
     fi
 }
 
-source ~/devstack/openrc quantum L3AdminTenant
+source ~/devstack/openrc $osn L3AdminTenant
 
 delete_service_resources_by_name nova server csr1kv_nrouter
 
-delete_service_resources_by_name quantum port t1_p:
-delete_service_resources_by_name quantum port t2_p:
+delete_service_resources_by_name $osn port mgmt
+delete_service_resources_by_name $osn port t1_p:
+delete_service_resources_by_name $osn port t2_p:
 
-delete_service_resources_by_name quantum subnet t1_sn:
-delete_service_resources_by_name quantum subnet t2_sn:
+delete_service_resources_by_name $osn subnet t1_sn:
+delete_service_resources_by_name $osn subnet t2_sn:
 
-delete_service_resources_by_name quantum net t1_n:
-delete_service_resources_by_name quantum net t2_n:
+delete_service_resources_by_name $osn net t1_n:
+delete_service_resources_by_name $osn net t2_n:
 
 source ~/devstack/localrc
-table="cisco_quantum"
-mysql -u$MYSQL_USER -p$MYSQL_PASSWORD -e "use $table; delete from hostingentities;"
+table="cisco_$osn"
+mysql -u$MYSQL_USER -p$MYSQL_PASSWORD -e "use $table; delete from hostingdevices;"
 
 echo
-echo "Now please RESTART Neutron (Quantum) SERVER and CISCO CFG AGENT!"
+echo "Now please RESTART $osn SERVER and CISCO CFG AGENT!"

@@ -82,13 +82,13 @@ class L3PluginApi(proxy.RpcProxy):
             topic=topic, default_version=self.BASE_RPC_API_VERSION)
         self.host = host
 
-    def get_routers(self, context, router_ids=None, he_ids=[]):
+    def get_routers(self, context, router_ids=None, hd_ids=[]):
         """Make a remote process call to retrieve the sync data for routers."""
-        #Note that the l3_cfg_agent makes a call on 'cfg_sync_routers'
+        #Note that the cfg_agent makes a call on 'cfg_sync_routers'
         return self.call(context,
                          self.make_msg('cfg_sync_routers', host=self.host,
                                        router_ids=router_ids,
-                                       hosting_entity_ids=he_ids),
+                                       hosting_device_ids=hd_ids),
                          topic=self.topic)
 
     def get_external_network_id(self, context):
@@ -103,19 +103,19 @@ class L3PluginApi(proxy.RpcProxy):
                                        host=self.host),
                          topic=self.topic)
 
-    def report_dead_hosting_entities(self, context, he_ids=[]):
-        """Report that a hosting entity cannot be contacted (presumed dead).
+    def report_dead_hosting_devices(self, context, hd_ids=[]):
+        """Report that a hosting device cannot be contacted (presumed dead).
 
         @param: context: contains user information
-        @param: kwargs: hosting_entity_ids: list of non-responding
-                                                    hosting entities
+        @param: kwargs: hosting_device_ids: list of non-responding
+                                            hosting devices
         @return: -
         """
         # Cast since we don't expect a return value.
         self.cast(context,
-                  self.make_msg('report_non_responding_hosting_entities',
+                  self.make_msg('report_non_responding_hosting_devices',
                                 host=self.host,
-                                hosting_entity_ids=he_ids),
+                                hosting_device_ids=hd_ids),
                   topic=self.topic)
 
 
@@ -154,7 +154,7 @@ class HostingEntities(object):
             router_id = router_info.router_id
             router = router_info.router
 
-            hosting_entity = router['hosting_entity']
+            hosting_entity = router['hosting_device']
             _he_id = hosting_entity['id']
             _he_type = hosting_entity['host_type']
             _he_ip = hosting_entity['ip_address']
@@ -194,7 +194,7 @@ class HostingEntities(object):
                 in self.backlog_hosting_entities.items()}
 
     def is_hosting_entity_reachable(self, router_id, router):
-        he = router['hosting_entity']
+        he = router['hosting_device']
         he_id = he['id']
         he_mgmt_ip = he['ip_address']
         #Modifying the 'created_at' to a date time object
@@ -750,8 +750,8 @@ class L3NATAgent(manager.Manager):
                 LOG.debug(_("Reporting dead hosting entities: %s"),
                           res['dead'])
                 # Process dead HE's
-                self.plugin_rpc.report_dead_hosting_entities(
-                    context, he_ids=res['dead'])
+                self.plugin_rpc.report_dead_hosting_devices(
+                    context, hd_ids=res['dead'])
 
 
     def after_start(self):
@@ -787,7 +787,7 @@ class L3NATAgentWithStateReport(L3NATAgent):
         self.agent_state = {
             'binary': 'neutron-l3-cfg-agent',
             'host': host,
-            'topic': cl3_constants.L3_CFG_AGENT,
+            'topic': cl3_constants.CFG_AGENT,
             'configurations': {
 #                'use_namespaces': self.conf.use_namespaces,
 #                'router_id': self.conf.router_id,
@@ -801,7 +801,7 @@ class L3NATAgentWithStateReport(L3NATAgent):
                     'neutron.plugins.cisco.l3.agent.csr1000v.'
                     'cisco_csr_network_driver.CiscoCSRDriver'}},
             'start_flag': True,
-            'agent_type': cl3_constants.AGENT_TYPE_L3_CFG}
+            'agent_type': cl3_constants.AGENT_TYPE_CFG}
         report_interval = cfg.CONF.AGENT.report_interval
         self.use_call = True
         if report_interval:
@@ -825,7 +825,7 @@ class L3NATAgentWithStateReport(L3NATAgent):
                                                 []))
             num_floating_ips += len(ri.router.get(l3_constants.FLOATINGIP_KEY,
                                                   []))
-            he = ri.router['hosting_entity']
+            he = ri.router['hosting_device']
             if he:
                 num_he_routers[he['id']] = num_he_routers.get(he['id'], 0) + 1
         routers_per_he = {he_id: {'routers': num} for he_id, num
@@ -872,7 +872,7 @@ def main(manager='neutron.agent.l3_agent.L3NATAgentWithStateReport'):
     config.setup_logging(conf)
     server = neutron_service.Service.create(
         binary='neutron-l3-cfg-agent',
-        topic=cl3_constants.L3_CFG_AGENT,
+        topic=cl3_constants.CFG_AGENT,
         report_interval=cfg.CONF.AGENT.report_interval,
         manager=manager)
     service.launch(server).wait()

@@ -38,6 +38,7 @@ from neutron.db import l3_db
 from neutron.db import l3_rpc_base
 from neutron.db import securitygroups_rpc_base as sg_db_rpc
 from neutron.extensions import providernet
+from neutron import manager
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import rpc
 from neutron.openstack.common.rpc import proxy
@@ -57,7 +58,7 @@ LOG = logging.getLogger(__name__)
 
 
 class N1kvRpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
-                       l3_rpc_base.L3RpcCallbackMixin,
+#                       l3_rpc_base.L3RpcCallbackMixin,
                        sg_db_rpc.SecurityGroupServerRpcCallbackMixin):
 
     """Class to handle agent RPC calls."""
@@ -128,7 +129,7 @@ class AgentNotifierApi(proxy.RpcProxy,
 
 class N1kvNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                           external_net_db.External_net_db_mixin,
-                          l3_db.L3_NAT_db_mixin,
+#                          l3_db.L3_NAT_db_mixin,
                           n1kv_db_v2.NetworkProfile_db_mixin,
                           n1kv_db_v2.PolicyProfile_db_mixin,
                           network_db_v2.Credential_db_mixin,
@@ -147,7 +148,7 @@ class N1kvNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
     __native_bulk_support = False
     supported_extension_aliases = ["provider", "agent",
                                    "n1kv_profile", "network_profile",
-                                   "policy_profile", "external-net", "router",
+                                   "policy_profile", "external-net", #"router",
                                    "credential"]
 
     def __init__(self, configfile=None):
@@ -175,7 +176,7 @@ class N1kvNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
             self.conn.create_consumer(svc_topic, self.dispatcher, fanout=False)
         # Consume from all consumers in a thread
         self.dhcp_agent_notifier = dhcp_rpc_agent_api.DhcpAgentNotifyAPI()
-        self.l3_agent_notifier = l3_rpc_agent_api.L3AgentNotify
+#        self.l3_agent_notifier = l3_rpc_agent_api.L3AgentNotify
         self.conn.consume_in_thread()
 
     def _setup_vsm(self):
@@ -263,8 +264,9 @@ class N1kvNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         self.vxlan_id_ranges = []
         network_profiles = n1kv_db_v2._get_network_profiles()
         for network_profile in network_profiles:
+            # Bob Melander: Temporary workaround for trunk networks.
             seg_min, seg_max = self._get_segment_range(
-                network_profile['segment_range'])
+                network_profile['segment_range'] or "0-0")
             if network_profile['segment_type'] == c_const.NETWORK_TYPE_VLAN:
                 self._add_network_vlan_range(network_profile[
                     'physical_network'], int(seg_min), int(seg_max))
@@ -1281,9 +1283,11 @@ class N1kvNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         """
         # if needed, check to see if this is a port owned by
         # and l3-router.  If so, we should prevent deletion.
-        if l3_port_check:
-            self.prevent_l3_port_deletion(context, id)
-        self.disassociate_floatingips(context, id)
+        l3plugin = manager.NeutronManager.get_service_plugins().get(
+            svc_constants.L3_ROUTER_NAT)
+        if l3plugin and l3_port_check:
+            l3plugin.prevent_l3_port_deletion(context, id)
+            l3plugin.disassociate_floatingips(context, id)
         self._send_delete_port_request(context, id)
         return super(N1kvNeutronPluginV2, self).delete_port(context, id)
 

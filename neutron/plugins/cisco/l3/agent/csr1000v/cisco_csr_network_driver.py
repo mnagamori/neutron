@@ -271,12 +271,12 @@ class CiscoCSRDriver(RoutingDriver):
         return intfc_name
 
     def _get_interface_vlan_from_hosting_port(self, port):
-        trunk_info = port['trunk_info']
-        vlan = trunk_info['segmentation_id']
+        hosting_info = port['hosting_info']
+        vlan = hosting_info['segmentation_id']
         return vlan
 
     def _get_interface_no_from_hosting_port(self, port):
-        _name = port['trunk_info']['hosting_port_name']
+        _name = port['hosting_info']['hosting_port_name']
         if_type = _name.split(':')[0] + ':'
         if if_type == cl3_constants.T1_PORT_NAME:
             no = str(int(_name.split(':')[1]) * 2)

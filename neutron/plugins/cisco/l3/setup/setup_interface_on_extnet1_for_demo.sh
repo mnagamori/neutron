@@ -2,10 +2,14 @@
 
 # Default values
 # --------------
-plugin=${1:-n1kv}
+# osn is the name of Openstack network service, i.e.,
+# it should be either 'neutron' or 'quantum', for
+# release >=Havana and release <=Grizzly, respectively.
+osn=${1:-neutron}
+plugin=${2:-n1kv}
 #plugin=ovs
 
-osnExtNwName=bob_test_extnet1
+osnExtNwName=test_extnet1
 osnExtNwLen=24
 hostportIP=10.0.21.3
 portName=hostOnExtNw
@@ -17,9 +21,9 @@ vethBridgeSideName=hostOnExtNw_bs
 function get_port_profile_id() {
     name=$1
     local c=0
-    pProfileId=`neutron cisco-policy-profile-list | awk 'BEGIN { res="None"; } /'"$name"'/ { res=$2; } END { print res;}'`
+    pProfileId=`$osn cisco-policy-profile-list | awk 'BEGIN { res="None"; } /'"$name"'/ { res=$2; } END { print res;}'`
     while [ $c -le 5 ] && [ "$pProfileId" == "None" ]; do
-        pProfileId=`neutron cisco-policy-profile-list | awk 'BEGIN { res="No"; } /'"$name"'/ { res=$2; } END { print res;}'`
+        pProfileId=`$osn cisco-policy-profile-list | awk 'BEGIN { res="No"; } /'"$name"'/ { res=$2; } END { print res;}'`
         let c+=1
         sleep 1
     done
@@ -30,7 +34,7 @@ if [ "$plugin" == "n1kv" ]; then
     get_port_profile_id ${n1kvPortPolicyProfileNames[0]}
     extra_port_params="--n1kv:profile_id $pProfileId"
 elif [ "$plugin" == "ovs" ]; then
-    nw=`neutron net-show $osnExtNwName`
+    nw=`$osn net-show $osnExtNwName`
     extNwVLAN=`echo "$nw" | awk '/provider:segmentation_id/ { print $4; }'`
     if [ -z ${extNwVLAN+x} ] || [ "$extNwVLAN" == "" ]; then
         echo "Failed to lookup VLAN of $osnExtNwName network, please check health of plugin and VSM then re-run this script."
@@ -40,11 +44,11 @@ elif [ "$plugin" == "ovs" ]; then
 fi
 
 echo -n "Checking if $portName port exists ..."
-port=`neutron port-show $portName 2>&1`
+port=`$osn port-show $portName 2>&1`
 hasPort=`echo $port | awk '/Unable to find|Value/ { if ($1 == "Unable") print "No"; else print "Yes"; }'`
 if [ "$hasPort" == "No" ]; then
     echo " No, it does not. Creating it."
-    port=`neutron port-create --name $portName --fixed-ip ip_address=$hostportIP $osnExtNwName $extra_port_params`
+    port=`$osn port-create --name $portName --fixed-ip ip_address=$hostportIP $osnExtNwName $extra_port_params`
 else
     echo " Yes, it does."
 fi

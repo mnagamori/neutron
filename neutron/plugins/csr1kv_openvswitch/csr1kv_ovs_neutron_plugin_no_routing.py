@@ -30,7 +30,6 @@ from sqlalchemy.orm import exc
 
 from neutron.agent import securitygroups_rpc as sg_rpc
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
-from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
 from neutron.api.v2 import attributes
 from neutron.common import constants as q_const
 from neutron.common import exceptions as q_exc
@@ -44,10 +43,6 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import dhcp_rpc_base
 from neutron.db import external_net_db
 from neutron.db import extradhcpopt_db
-from neutron.db import extraroute_db
-#from neutron.db import l3_agentschedulers_db
-from neutron.db import l3_gwmode_db
-from neutron.db import l3_rpc_base
 from neutron.db import model_base
 from neutron.db import models_v2
 from neutron.db import portbindings_db
@@ -63,12 +58,6 @@ from neutron.openstack.common import log as logging
 from neutron.openstack.common import rpc
 from neutron.openstack.common.rpc import proxy
 import neutron.plugins
-from neutron.plugins.cisco.l3.common import constants as cl3_constants
-from neutron.plugins.cisco.l3.common import l3_rpc_agent_api_noop
-from neutron.plugins.cisco.l3.common import l3_rpc_joint_agent_api
-from neutron.plugins.cisco.l3.db import composite_agentschedulers_db as agt_sch_db
-from neutron.plugins.cisco.l3.db import l3_cfg_rpc_base
-from neutron.plugins.cisco.l3.db import l3_router_appliance_db
 from neutron.plugins.common import constants as svc_constants
 from neutron.plugins.common import utils as plugin_utils
 from neutron.plugins.csr1kv_openvswitch.common import config  # noqa
@@ -81,8 +70,6 @@ LOG = logging.getLogger(__name__)
 
 
 class CSR1kv_OVSRpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
-                             l3_rpc_base.L3RpcCallbackMixin,
-                             l3_cfg_rpc_base.L3CfgRpcCallbackMixin,
                              sg_db_rpc.SecurityGroupServerRpcCallbackMixin):
 
     # history
@@ -298,11 +285,7 @@ class TrunkPortNetwork(model_base.BASEV2):
 
 class CSR1kv_OVSNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                                 external_net_db.External_net_db_mixin,
-                                l3_router_appliance_db.
-                                L3_router_appliance_db_mixin,
-#                                l3_gwmode_db.L3_NAT_db_mixin,
                                 sg_db_rpc.SecurityGroupServerRpcMixin,
-                                agt_sch_db.CompositeAgentSchedulerDbMixin,
                                 agentschedulers_db.DhcpAgentSchedulerDbMixin,
                                 portbindings_db.PortBindingMixin,
                                 extradhcpopt_db.ExtraDhcpOptMixin,
@@ -332,11 +315,9 @@ class CSR1kv_OVSNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
     __native_pagination_support = True
     __native_sorting_support = True
 
-    _supported_extension_aliases = ["provider", "external-net", "router",
+    _supported_extension_aliases = ["provider", "external-net",
                                     "trunkport", "binding", "quotas",
-#                                    "ext-gw-mode", "binding", "quotas",
-                                    "security-group", "agent", "extraroute",
-                                    "l3_agent_scheduler",
+                                    "security-group", "agent",
                                     "dhcp_agent_scheduler",
                                     "extra_dhcp_opt",
                                     "allowed-address-pairs"]
@@ -397,40 +378,18 @@ class CSR1kv_OVSNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         cfg.CONF.set_override('api_extensions_path', ext_path)
         #TODO(bobmel): Remove this over-ride of router scheduler default
         #TODO(bobmel): setting and make it part of installer instead.
-        cfg.CONF.set_override('router_scheduler_driver',
-                              'neutron.plugins.cisco.l3.scheduler.'
-                              'l3_agent_composite_scheduler.'
-                              'L3AgentCompositeScheduler')
         self.network_scheduler = importutils.import_object(
             cfg.CONF.network_scheduler_driver
         )
-        self.router_scheduler = importutils.import_object(
-            cfg.CONF.router_scheduler_driver
-        )
-        # Bob: to schedule routers to hosting entities
-        self.hosting_scheduler = importutils.import_object(
-            cfg.CONF.hosting_scheduler_driver)
-        # Bob: for the backlogging of non-scheduled routers
-        self._setup_backlog_handling()
 
     def setup_rpc(self):
         # RPC support
-        self.service_topics = {svc_constants.CORE: topics.PLUGIN,
-                               svc_constants.L3_ROUTER_NAT: topics.L3PLUGIN}
+        self.service_topics = {svc_constants.CORE: topics.PLUGIN}
         self.conn = rpc.create_connection(new=True)
         self.notifier = AgentNotifierApi(topics.AGENT)
         self.agent_notifiers[q_const.AGENT_TYPE_DHCP] = (
             dhcp_rpc_agent_api.DhcpAgentNotifyAPI()
         )
-        self.agent_notifiers[q_const.AGENT_TYPE_L3] = (
-            l3_rpc_agent_api.L3AgentNotify
-        )
-        # Bob: setup l3 cfg agent notifiers
-        self.agent_notifiers[cl3_constants.AGENT_TYPE_CFG] = (
-            l3_rpc_joint_agent_api.L3JointAgentNotify
-        )
-        # Bob: Disable notifications from l3 base class to l3 agents
-        self.l3_rpc_notifier = l3_rpc_agent_api_noop.L3AgentNotifyNoOp
         self.callbacks = CSR1kv_OVSRpcCallbacks(self.notifier, self.tunnel_type,
                                                 self)
         self.dispatcher = self.callbacks.create_rpc_dispatcher()

@@ -6,7 +6,10 @@
 
 # Default values
 # --------------
-adminUser="neutron"
+# adminUser is same as name of Openstack network service,
+# i.e., it should be either 'neutron' or 'quantum', for
+# release >=Havana and release <=Grizzly, respectively.
+adminUser=${1:-neutron}
 adminRole="admin"
 # Below user is just for demos so that we don't see all logical instances.
 regularUser="viewer"

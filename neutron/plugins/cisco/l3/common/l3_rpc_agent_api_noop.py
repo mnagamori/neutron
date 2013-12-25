@@ -20,13 +20,8 @@ from neutron.openstack.common import log as logging
 LOG = logging.getLogger(__name__)
 
 
-# TODO(bob-melander): This class is just a temporary arrangement to make
-# rebasing trivial. We monkey patch so that this class is used instead of
-# the L3AgentNotifyAPI proper. The latter is instead called by our
-# composite agent notifier class.
-# For the code that we upstream a better approach is to add a parameter,
-# notify_agents=True, to all functions in L3_NAT_db_mixin (and derived
-# classes) that determines if agent notifications will be sent or not.
+# This class is used instead of the L3AgentNotifyAPI to effectively
+# disable notifications from the l3 base class to the l3 agents.
 class L3AgentNotifyAPINoOp(object):
     """API for plugin to notify L3 agent but without actions."""
     BASE_RPC_API_VERSION = '1.0'
@@ -38,17 +33,12 @@ class L3AgentNotifyAPINoOp(object):
         """Notify the agent that is hosting the router."""
         pass
 
-    def _agent_notification(self, context, method, routers,
+    def _agent_notification(self, context, method, routers_ids,
                             operation, data):
-        """Notify changed routers to hosting l3 agents.
-
-        Adjust routers according to l3 agents' role and
-        related dhcp agents.
-        Notify dhcp agent to get right subnet's gateway ips.
-        """
+        """Notify changed routers to hosting l3 agents."""
         pass
 
-    def _notification(self, context, method, routers, operation, data):
+    def _notification(self, context, method, routers_ids, operation, data):
         """Notify all the agents that are hosting the routers."""
         pass
 

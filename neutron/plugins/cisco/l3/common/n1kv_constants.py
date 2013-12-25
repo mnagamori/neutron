@@ -15,3 +15,21 @@
 #    under the License.
 #
 # @author: Bob Melander, Cisco Systems, Inc.
+
+# Constants for the N1kv plugging drivers.
+
+# These prefix defines will go away when Nova allows spinning up
+# VMs with vifs on networks without subnet(s).
+SUB_PREFX = '172.16.1.0/24'
+
+# T1 port/network is for VXLAN
+T1_PORT_NAME = 't1_p:'
+# T2 port/network is for VLAN
+T2_PORT_NAME = 't2_p:'
+T1_NETWORK_NAME = 't1_n:'
+T2_NETWORK_NAME = 't2_n:'
+T1_SUBNET_NAME = 't1_sn:'
+T2_SUBNET_NAME = 't2_sn:'
+
+T1_SUBNET_START_PREFX = '172.16.'
+T2_SUBNET_START_PREFX = '172.32.'

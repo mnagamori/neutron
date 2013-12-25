@@ -337,7 +337,8 @@ class Client(object):
         body = {'addressRangeStart': address_range_start,
                 'addressRangeEnd': address_range_end,
                 'ipAddressSubnet': netmask,
-                'description': subnet['name'],
+                # Bob Melander: Temporary workaround for VSM bug.
+                'description': subnet['name'] or "DUMMY_NAME",
                 'gateway': subnet['gateway_ip'],
                 'networkAddress': network_address,
                 'tenantId': subnet['tenant_id']}

@@ -2,7 +2,10 @@
 
 # Default values
 # --------------
-adminUser="neutron"
+# adminUser is same as name of Openstack network service,
+# i.e., it should be either 'neutron' or 'quantum', for
+# release >=Havana and release <=Grizzly, respectively.
+adminUser=${1:-neutron}
 l3AdminTenant="L3AdminTenant"
 csr1kvFlavorName="csr1kv_router"
 csr1kvFlavorId=621
@@ -10,7 +13,7 @@ networkHostsAggregateName="compute_network_hosts"
 aggregateMetadataKey="network_host"
 aggregateMetadataValue="True"
 aggregateMetadata=$aggregateMetadataKey"="$aggregateMetadataValue
-computeNetworkNodes=(ComputeNode1 ComputeNode3)
+computeNetworkNodes=($(hostname) ComputeNode)
 csr1kvImageSrc="/home/stack/csr1000v-XE310_Throttle_20130506.qcow2"
 csr1kvImageName="csr1kv_openstack_img"
 csr1kvDiskFormat="qcow2"
