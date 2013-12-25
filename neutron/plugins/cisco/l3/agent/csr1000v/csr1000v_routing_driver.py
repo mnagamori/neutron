@@ -25,17 +25,19 @@ from ncclient import manager
 import xml.etree.ElementTree as ET
 from ciscoconfparse import CiscoConfParse
 
-from neutron.plugins.cisco.l3.agent.hosting_entity_driver import RoutingDriver
+from neutron.plugins.cisco.l3.agent.services_api import RoutingDriver
 from neutron.plugins.cisco.l3.common import constants as cl3_constants
 
 import cisco_csr_snippets as snippets
 
 LOG = logging.getLogger(__name__)
 
-DEV_NAME_LEN = 14
 
-class CiscoCSRDriver(RoutingDriver):
-    """CSR1000v Driver Main Class."""
+class CSR1000vRoutingDriver(RoutingDriver):
+    """CSR1000v Routing Driver"""
+
+    DEV_NAME_LEN = 14
+
     def __init__(self, csr_host, csr_ssh_port, csr_user, csr_password):
         self._csr_host = csr_host
         self._csr_ssh_port = csr_ssh_port
@@ -49,19 +51,19 @@ class CiscoCSRDriver(RoutingDriver):
     def router_added(self, ri):
         self._csr_create_vrf(ri)
 
-    def router_removed(self, ri, deconfigure=True):
+    def router_removed(self, ri):
         self._csr_remove_vrf(ri)
 
-    def internal_network_added(self, ri, ex_gw_port, port):
+    def internal_network_added(self, ri, port):
         self._csr_create_subinterface(ri, port)
         if port.get('ha_info') is not None and ri.ha_info['ha:enabled']:
             self._csr_add_ha(ri, port)
-        if ex_gw_port:
-            self._csr_add_internalnw_nat_rules(ri, port, ex_gw_port)
+        # if ex_gw_port:
+        #     self._csr_add_internalnw_nat_rules(ri, port, ex_gw_port)
 
-    def internal_network_removed(self, ri, ex_gw_port, port):
-        if ex_gw_port:
-            self._csr_remove_internalnw_nat_rules(ri, [port], ex_gw_port)
+    def internal_network_removed(self, ri, port):
+        # if ex_gw_port:
+        #     self._csr_remove_internalnw_nat_rules(ri, [port], ex_gw_port)
         self._csr_remove_subinterface(ri, port)
 
     def external_gateway_added(self, ri, ex_gw_port):
@@ -70,16 +72,17 @@ class CiscoCSRDriver(RoutingDriver):
         if ex_gw_ip:
             #Set default route via this network's gateway ip
             self._csr_add_default_route(ri, ex_gw_ip)
-            #Apply NAT rules for internal networks
-        if len(ri.internal_ports) > 0:
-            for port in ri.internal_ports:
-                self._csr_add_internalnw_nat_rules(ri, port, ex_gw_port)
+
+        #Apply NAT rules for internal networks
+        # if len(ri.internal_ports) > 0:
+        #     for port in ri.internal_ports:
+        #         self._csr_add_internalnw_nat_rules(ri, port, ex_gw_port)
 
     def external_gateway_removed(self, ri, ex_gw_port):
         #Remove internal network NAT rules
-        if len(ri.internal_ports) > 0:
-            self._csr_remove_internalnw_nat_rules(ri, ri.internal_ports,
-                                                  ex_gw_port)
+        # if len(ri.internal_ports) > 0:
+        #     self._csr_remove_internalnw_nat_rules(ri, ri.internal_ports,
+        #                                           ex_gw_port)
 
         ex_gw_ip = ex_gw_port['subnet']['gateway_ip']
         if ex_gw_ip:
@@ -88,6 +91,12 @@ class CiscoCSRDriver(RoutingDriver):
 
         #Finally, remove external network subinterface
         self._csr_remove_subinterface(ri, ex_gw_port)
+
+    def enable_internal_network_NAT(self, ri, port, ex_gw_port):
+            self._csr_add_internalnw_nat_rules(ri, port, ex_gw_port)
+
+    def disable_internal_network_NAT(self, ri, port, ex_gw_port):
+            self._csr_remove_internalnw_nat_rules(ri, [port], ex_gw_port)
 
     def floating_ip_added(self, ri, ex_gw_port, floating_ip, fixed_ip):
         self._csr_add_floating_ip(ri, ex_gw_port, floating_ip, fixed_ip)
@@ -98,7 +107,10 @@ class CiscoCSRDriver(RoutingDriver):
     def routes_updated(self, ri, action, route):
         self._csr_update_routing_table(ri, action, route)
 
-    ##### First order Internal Functions ####
+    def clear_connection(self):
+        self._csr_conn = None
+
+    ##### Internal Functions  ####
 
     def _csr_create_subinterface(self, ri, port):
         vrf_name = self._csr_get_vrf_name(ri)
@@ -122,9 +134,9 @@ class CiscoCSRDriver(RoutingDriver):
 
     def _csr_add_ha(self, ri, port):
         func_dict = {
-            'HSRP': CiscoCSRDriver._csr_add_ha_HSRP,
-            'VRRP': CiscoCSRDriver._csr_add_ha_VRRP,
-            'GBLP': CiscoCSRDriver._csr_add_ha_GBLP
+            'HSRP': CSR1000vRoutingDriver._csr_add_ha_HSRP,
+            'VRRP': CSR1000vRoutingDriver._csr_add_ha_VRRP,
+            'GBLP': CSR1000vRoutingDriver._csr_add_ha_GBLP
         }
         #Invoke the right function for the ha type
         func_dict[ri.ha_info['ha:type']](self, ri, port)
@@ -233,9 +245,7 @@ class CiscoCSRDriver(RoutingDriver):
         self.remove_vrf(vrf_name)
 
     def _csr_get_vrf_name(self, ri):
-        return ri.router_name()[:DEV_NAME_LEN]
-
-    ###### Native Internal Functions ####
+        return ri.router_name()[:self.DEV_NAME_LEN]
 
     def _get_connection(self):
         """Make SSH connection to the CSR """
@@ -260,9 +270,6 @@ class CiscoCSRDriver(RoutingDriver):
                             "Port:%(port)s User:%(user)s Password:%(pass)s"),
                           {'host': self._csr_host, 'port': self._csr_ssh_port,
                            'user': self._csr_user, 'pass': self._csr_password})
-
-    def clear_connection(self):
-        self._csr_conn = None
 
     def _get_interface_name_from_hosting_port(self, port):
         vlan = self._get_interface_vlan_from_hosting_port(port)
@@ -290,7 +297,7 @@ class CiscoCSRDriver(RoutingDriver):
         """
         :return: List of the interfaces
         """
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         intfs_raw = parse.find_lines("^interface GigabitEthernet")
         #['interface GigabitEthernet1', 'interface GigabitEthernet2',
@@ -302,13 +309,13 @@ class CiscoCSRDriver(RoutingDriver):
         LOG.info("Interfaces:%s" % intfs)
         return intfs
 
-    def get_interface_ip(self, interface_name):
+    def _get_interface_ip(self, interface_name):
         """
         Get the ip address for an interface
         :param interface_name:
         :return: ip address as a string
         """
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         children = parse.find_children("^interface %s" % interface_name)
         for line in children:
@@ -320,8 +327,8 @@ class CiscoCSRDriver(RoutingDriver):
                 LOG.warn("Cannot find interface:" % interface_name)
                 return None
 
-    def interface_exists(self, interface):
-        ioscfg = self.get_running_config()
+    def _interface_exists(self, interface):
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         intfs_raw = parse.find_lines("^interface " + interface)
         if len(intfs_raw) > 0:
@@ -330,7 +337,7 @@ class CiscoCSRDriver(RoutingDriver):
             return False
 
     def _enable_intfs(self, conn):
-        # CSR1kv, in release 3.11 GigabitEthernet 0 is gone.
+        # CSR1kv, in release 3.11 GigabitEthernet 0 is no longer present.
         # so GigabitEthernet 1 is used as management and 2 up
         # is used for data.
         interfaces = ['GigabitEthernet 2', 'GigabitEthernet 3']
@@ -346,12 +353,12 @@ class CiscoCSRDriver(RoutingDriver):
             return False
         return True
 
-    def get_vrfs(self):
+    def _get_vrfs(self):
         """
         :return: A list of vrf names as string
         """
         vrfs = []
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         vrfs_raw = parse.find_lines("^ip vrf")
         for line in vrfs_raw:
@@ -361,7 +368,7 @@ class CiscoCSRDriver(RoutingDriver):
         LOG.info("VRFs:%s" % vrfs)
         return vrfs
 
-    def get_capabilities(self):
+    def _get_capabilities(self):
         conn = self._get_connection()
         capabilities = []
         for c in conn.server_capabilities:
@@ -369,7 +376,7 @@ class CiscoCSRDriver(RoutingDriver):
         LOG.debug("Server capabilities: %s" % capabilities)
         return capabilities
 
-    def get_running_config(self):
+    def _get_running_config(self):
         conn = self._get_connection()
         config = conn.get_config(source="running")
         if config:
@@ -383,7 +390,7 @@ class CiscoCSRDriver(RoutingDriver):
     def _check_acl(self, acl_no, network, netmask):
         exp_cfg_lines = ['ip access-list standard ' + str(acl_no),
                          ' permit ' + str(network) + ' ' + str(netmask)]
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         acls_raw = parse.find_children(exp_cfg_lines[0])
         if acls_raw:
@@ -396,11 +403,11 @@ class CiscoCSRDriver(RoutingDriver):
             LOG.debug("%s is not present in config" % acl_no)
             return False
 
-    def cfg_exists(self, cfg_str):
-        ioscfg = self.get_running_config()
+    def _cfg_exists(self, cfg_str):
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         cfg_raw = parse.find_lines("^" + cfg_str)
-        LOG.debug("cfg_exists(): Found lines %s " % cfg_raw)
+        LOG.debug("_cfg_exists(): Found lines %s " % cfg_raw)
         if len(cfg_raw) > 0:
             return True
         else:
@@ -423,7 +430,7 @@ class CiscoCSRDriver(RoutingDriver):
             LOG.exception("Failed creating VRF %s" % vrf_name)
 
     def remove_vrf(self, vrf_name):
-        if vrf_name in self.get_vrfs():
+        if vrf_name in self._get_vrfs():
             conn = self._get_connection()
             confstr = snippets.REMOVE_VRF % vrf_name
             rpc_obj = conn.edit_config(target='running', config=confstr)
@@ -433,7 +440,7 @@ class CiscoCSRDriver(RoutingDriver):
             LOG.warning("VRF %s not present" % vrf_name)
 
     def create_subinterface(self, subinterface, vlan_id, vrf_name, ip, mask):
-        if vrf_name not in self.get_vrfs():
+        if vrf_name not in self._get_vrfs():
             LOG.error("VRF %s not present" % vrf_name)
         confstr = snippets.CREATE_SUBINTERFACE % (subinterface, vlan_id,
                                                   vrf_name, ip, mask)
@@ -442,13 +449,13 @@ class CiscoCSRDriver(RoutingDriver):
     def remove_subinterface(self, subinterface, vlan_id, vrf_name, ip):
         #Optional : verify this is the correct subinterface
         conn = self._get_connection()
-        if self.interface_exists(subinterface):
+        if self._interface_exists(subinterface):
             confstr = snippets.REMOVE_SUBINTERFACE % (subinterface)
             rpc_obj = conn.edit_config(target='running', config=confstr)
             print self._check_response(rpc_obj, 'REMOVE_SUBINTERFACE')
 
     def _set_ha_HSRP(self, subinterface, vrf_name, priority, group, ip):
-        if vrf_name not in self.get_vrfs():
+        if vrf_name not in self._get_vrfs():
             LOG.error("VRF %s not present" % vrf_name)
         confstr = snippets.SET_INTC_HSRP % (subinterface, vrf_name, group,
                                             priority, group, ip)
@@ -462,7 +469,7 @@ class CiscoCSRDriver(RoutingDriver):
         self.edit_running_config(confstr, action)
 
     def _get_interface_cfg(self, interface):
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         res = parse.find_children('interface ' + interface)
         return res
@@ -514,7 +521,7 @@ class CiscoCSRDriver(RoutingDriver):
     def remove_dyn_nat_rule(self,acl_no, outer_intfc_name, vrf_name):
         conn = self._get_connection()
         confstr = snippets.SNAT_CFG % (acl_no, outer_intfc_name, vrf_name)
-        if self.cfg_exists(confstr):
+        if self._cfg_exists(confstr):
             confstr = snippets.REMOVE_DYN_SRC_TRL_INTFC % (acl_no,
                                                            outer_intfc_name,
                                                            vrf_name)
@@ -545,7 +552,7 @@ class CiscoCSRDriver(RoutingDriver):
         print self._check_response(rpc_obj, 'REMOVE_STATIC_SRC_TRL')
 
     def _get_floating_ip_cfg(self):
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         res = parse.find_lines('ip nat inside source static')
         return res
@@ -563,7 +570,7 @@ class CiscoCSRDriver(RoutingDriver):
         print self._check_response(rpc_obj, 'REMOVE_IP_ROUTE')
 
     def _get_static_route_cfg(self):
-        ioscfg = self.get_running_config()
+        ioscfg = self._get_running_config()
         parse = CiscoConfParse(ioscfg)
         res = parse.find_lines('ip route')
         return res
@@ -571,7 +578,7 @@ class CiscoCSRDriver(RoutingDriver):
     def add_default_static_route(self, gw_ip, vrf):
         conn = self._get_connection()
         confstr = snippets.DEFAULT_ROUTE_CFG % (vrf, gw_ip)
-        if not self.cfg_exists(confstr):
+        if not self._cfg_exists(confstr):
                 confstr = snippets.SET_DEFAULT_ROUTE % (vrf, gw_ip)
                 rpc_obj = conn.edit_config(target='running', config=confstr)
                 print self._check_response(rpc_obj, 'SET_DEFAULT_ROUTE')
@@ -579,7 +586,7 @@ class CiscoCSRDriver(RoutingDriver):
     def remove_default_static_route(self, gw_ip, vrf):
         conn = self._get_connection()
         confstr = snippets.DEFAULT_ROUTE_CFG % (vrf, gw_ip)
-        if self.cfg_exists(confstr):
+        if self._cfg_exists(confstr):
                 confstr = snippets.REMOVE_DEFAULT_ROUTE % (vrf, gw_ip)
                 rpc_obj = conn.edit_config(target='running', config=confstr)
                 print self._check_response(rpc_obj, 'REMOVE_DEFAULT_ROUTE')
@@ -635,12 +642,12 @@ class CiscoCSRDriver(RoutingDriver):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, filemode="w")
-    #driver = CiscoCSRDriver("172.29.74.81", 22, "stack", 'cisco')
-    driver = CiscoCSRDriver("172.16.6.141", 22, "stack", 'cisco')
+    #driver = CSR1000vRoutingDriver("172.29.74.81", 22, "stack", 'cisco')
+    driver = CSR1000vRoutingDriver("172.16.6.141", 22, "stack", 'cisco')
     if driver._get_connection():
         logging.info('Connection Established!')
-        #driver.get_capabilities()
-        #print driver.get_running_config()
+        #driver._get_capabilities()
+        #print driver._get_running_config()
         #driver.set_interface(conn, 'GigabitEthernet1', '10.0.200.1')
         #driver.get_interfaces(conn)
         #driver.get_inter
@@ -668,7 +675,7 @@ if __name__ == "__main__":
         #driver.remove_static_route('172.16.0.0', '255.255.0.0', '10.0.20.254', 'qrouter-131666dc')
         #driver.remove_vrf('wrong_vrf') #Wrong vrf
         #driver.create_vrf("my_dummy_vrf")
-        #driver.get_vrfs()
+        #driver._get_vrfs()
         #driver.remove_vrf("my_dummy_vrf")
         #driver._get_floating_ip_cfg()
         #print driver._check_acl('acl_10', '10.0.3.0', '0.0.0.255')
@@ -677,7 +684,7 @@ if __name__ == "__main__":
         #driver.remove_subinterface('GigabitEthernet2.101', '101', 'qrouter-131666dc', '10.0.11.1')
         #print driver.if_interface_exists('GigabitEthernet2.10')
         #print driver.if_interface_exists('GigabitEthernet1.10')
-        # print driver.cfg_exists("ip nat inside source list acl_12 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
-        # print driver.cfg_exists("ip nat inside source list acl_121 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
+        # print driver._cfg_exists("ip nat inside source list acl_12 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
+        # print driver._cfg_exists("ip nat inside source list acl_121 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
         #driver.remove_dyn_nat_translations()
         print "All done"
