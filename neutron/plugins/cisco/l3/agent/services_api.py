@@ -139,7 +139,7 @@ class RoutingDriver():
            :param ex_gw_port : port dictionary for the port where the external
             gateway network is connected
            :param floating_ip: Floating IP as a string
-           :param fixed_ip: Fixed IP of internal internal interface as a string 
+           :param fixed_ip: Fixed IP of internal internal interface as a string
         """
         pass
 
@@ -153,4 +153,3 @@ class RoutingDriver():
            :param route: route dictionary with keys 'destination' & 'next_hop'
         """
         pass
-

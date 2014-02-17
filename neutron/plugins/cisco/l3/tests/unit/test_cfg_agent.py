@@ -26,7 +26,7 @@ from neutron.common import exceptions as n_exc
 from neutron.openstack.common import uuidutils
 from neutron.tests import base
 from neutron.plugins.cisco.l3.agent.router_info import RouterInfo
-from neutron.plugins.cisco.l3.agent.cfg_agent import L3NATAgent
+from neutron.plugins.cisco.l3.agent.cfg_agent import CiscoCfgAgent
 
 _uuid = uuidutils.generate_uuid
 HOSTNAME = 'myhost'
@@ -39,7 +39,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         super(TestBasicRouterOperations, self).setUp()
         self.conf = cfg.ConfigOpts()
         self.conf.register_opts(base_config.core_opts)
-        self.conf.register_opts(L3NATAgent.OPTS)
+        self.conf.register_opts(CiscoCfgAgent.OPTS)
         self.ex_gw_port = {'id': _uuid(),
                            'network_id': _uuid(),
                            'fixed_ips': [{'ip_address': '19.4.4.4',
@@ -117,10 +117,10 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertEqual(ri.snat_enabled, False)
 
     def test_agent_create(self):
-        L3NATAgent(HOSTNAME, self.conf)
+        CiscoCfgAgent(HOSTNAME, self.conf)
 
     def test_process_router(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent.process_router_floating_ips = mock.Mock()
         agent.internal_network_added = mock.Mock()
         agent.external_gateway_added = mock.Mock()
@@ -173,7 +173,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
     def test_routing_table_update(self):
         router_id = _uuid()
         router = self.router
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent._hdm.get_driver = mock.MagicMock()
         driver = mock.MagicMock()
         agent._hdm.get_driver.return_value = driver
@@ -211,12 +211,12 @@ class TestBasicRouterOperations(base.BaseTestCase):
         driver.routes_updated.assert_any_call(ri, 'delete', fake_route1)
 
     def test_process_router_internal_network_added_unexpected_error(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent._hdm.get_driver = mock.MagicMock()
         router, ports = self._prepare_router_data()
         ri = RouterInfo(router['id'], router=router)
         with mock.patch.object(
-                L3NATAgent,
+                CiscoCfgAgent,
                 'internal_network_added') as internal_network_added:
             # raise RuntimeError to simulate that an unexpected exception
             # occurrs
@@ -236,7 +236,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
                 router[l3_constants.INTERFACE_KEY][0], ri.internal_ports)
 
     def test_process_router_internal_network_removed_unexpected_error(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         router, ports = self._prepare_router_data()
         ri = RouterInfo(router['id'], router=router)
         agent._hdm.get_driver = mock.MagicMock()
@@ -244,7 +244,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         agent.process_router(ri)
 
         with mock.patch.object(
-                L3NATAgent,
+                CiscoCfgAgent,
                 'internal_network_removed') as internal_net_removed:
             # raise RuntimeError to simulate that an unexpected exception
             # occurrs
@@ -266,7 +266,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
                 router[l3_constants.INTERFACE_KEY][0], ri.internal_ports)
 
     def test_routers_with_admin_state_down(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         self.plugin_api.get_external_network_id.return_value = None
 
         routers = [
@@ -277,25 +277,25 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertNotIn(routers[0]['id'], agent.router_info)
 
     def test_router_deleted(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent.router_deleted(None, FAKE_ID)
         # verify that will set fullsync
         self.assertIn(FAKE_ID, agent.removed_routers)
 
     def test_routers_updated(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent.routers_updated(None, [FAKE_ID])
         # verify that will set fullsync
         self.assertIn(FAKE_ID, agent.updated_routers)
 
     def test_removed_from_agent(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent.router_removed_from_agent(None, {'router_id': FAKE_ID})
         # verify that will set fullsync
         self.assertIn(FAKE_ID, agent.removed_routers)
 
     def test_added_to_agent(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent.router_added_to_agent(None, [FAKE_ID])
         # verify that will set fullsync
         self.assertIn(FAKE_ID, agent.updated_routers)
@@ -306,7 +306,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         agent._hdm.get_driver = mock.MagicMock()
 
     def test_process_router_delete(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         agent._hdm.get_driver = mock.MagicMock()
         ex_gw_port = {'id': _uuid(),
                       'network_id': _uuid(),
@@ -330,7 +330,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertFalse(list(agent.removed_routers))
 
     def test_process_routers_with_no_ext_net_in_conf(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         self._mock_driver_and_hosting_device(agent)
         self.plugin_api.get_external_network_id.return_value = 'aaa'
 
@@ -345,7 +345,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertIn(routers[0]['id'], agent.router_info)
 
     def test_process_routers_with_no_ext_net_in_conf_and_two_net_plugin(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         self._mock_driver_and_hosting_device(agent)
         routers = [
             {'id': _uuid(),
@@ -365,7 +365,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertIn(routers[0]['id'], agent.router_info)
 
     def test_process_routers_with_ext_net_in_conf(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         self._mock_driver_and_hosting_device(agent)
         self.plugin_api.get_external_network_id.return_value = 'aaa'
 
@@ -388,7 +388,7 @@ class TestBasicRouterOperations(base.BaseTestCase):
         self.assertNotIn(routers[1]['id'], agent.router_info)
 
     def test_process_routers_with_no_bridge_no_ext_net_in_conf(self):
-        agent = L3NATAgent(HOSTNAME, self.conf)
+        agent = CiscoCfgAgent(HOSTNAME, self.conf)
         self._mock_driver_and_hosting_device(agent)
         self.plugin_api.get_external_network_id.return_value = 'aaa'
 

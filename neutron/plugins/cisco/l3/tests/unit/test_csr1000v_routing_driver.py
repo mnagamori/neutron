@@ -59,7 +59,7 @@ class TestCSR1000vRouting(base.BaseTestCase):
                                       'gateway_ip': self.ex_gw_gateway_ip},
                            'ip_cidr': self.ex_gw_cidr,
                            'mac_address': 'ca:fe:de:ad:be:ef',
-                           'trunk_info': {'segmentation_id': self.ex_gw_vlan,
+                           'hosting_info': {'segmentation_id': self.ex_gw_vlan,
                                           'hosting_port_name': 't2_p:0'}
         }
         self.vlan_no = 500
@@ -69,8 +69,8 @@ class TestCSR1000vRouting(base.BaseTestCase):
         self.port = {'id': PORT_ID,
                      'ip_cidr': self.gw_ip_cidr,
                      'fixed_ips': [{'ip_address': self.gw_ip}],
-                     'trunk_info': {'segmentation_id': self.vlan_no,
-                                    'hosting_port_name': self.hosting_port}}
+                     'hosting_info': {'segmentation_id': self.vlan_no,
+                                      'hosting_port_name': self.hosting_port}}
         int_ports = [self.port]
 
         self.router = {

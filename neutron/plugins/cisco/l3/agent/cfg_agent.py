@@ -20,17 +20,17 @@ import eventlet
 import netaddr
 from oslo.config import cfg
 
-from neutron.agent.common import config
-from neutron.agent.linux import external_process
-from neutron.agent.linux import interface
-from neutron.agent.linux import ip_lib
+from neutron import context
+from neutron import manager
+from neutron import service as neutron_service
 from neutron.agent import rpc as agent_rpc
 from neutron.common import constants as l3_constants
 from neutron.common import topics
 from neutron.common import utils as common_utils
-from neutron import context
-from neutron import manager
-from neutron import service as neutron_service
+from neutron.agent.common import config
+from neutron.agent.linux import external_process
+from neutron.agent.linux import interface
+from neutron.agent.linux import ip_lib
 from neutron.openstack.common import lockutils
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import loopingcall
@@ -50,7 +50,7 @@ RPC_LOOP_INTERVAL = 1
 
 
 class L3PluginApi(proxy.RpcProxy):
-    """Agent side of the l3 agent RPC API."""
+    """Agent side of the agent RPC API."""
 
     BASE_RPC_API_VERSION = '1.0'
 
@@ -95,9 +95,9 @@ class L3PluginApi(proxy.RpcProxy):
                   topic=self.topic)
 
 
-class L3NATAgent(manager.Manager):
+class CiscoCfgAgent(manager.Manager):
 
-    """Manager for L3NatAgent.
+    """Cisco Cfg Agent.
     This class is based on the reference l3 agent implementation and modified
     for working with configuring hosting devices
 
@@ -145,7 +145,7 @@ class L3NATAgent(manager.Manager):
         self.rpc_loop = loopingcall.FixedIntervalLoopingCall(
             self._rpc_loop)
         self.rpc_loop.start(interval=RPC_LOOP_INTERVAL)
-        super(L3NATAgent, self).__init__(host=self.conf.host)
+        super(CiscoCfgAgent, self).__init__(host=self.conf.host)
 
     def _fetch_external_net_id(self):
         """Find UUID of single external network for this agent."""
@@ -491,13 +491,14 @@ class L3NATAgent(manager.Manager):
         ri.routes = new_routes
 
 
-class L3NATAgentWithStateReport(L3NATAgent):
+class CiscoCfgAgentWithStateReport(CiscoCfgAgent):
 
     def __init__(self, host, conf=None):
-        super(L3NATAgentWithStateReport, self).__init__(host=host, conf=conf)
+        super(CiscoCfgAgentWithStateReport, self).__init__(host=host,
+                                                           conf=conf)
         self.state_rpc = agent_rpc.PluginReportStateAPI(topics.PLUGIN)
         self.agent_state = {
-            'binary': 'neutron-l3-cfg-agent',
+            'binary': 'neutron-cisco-cfg-agent',
             'host': host,
             'topic': cl3_constants.CFG_AGENT,
             'configurations': {
@@ -572,10 +573,10 @@ class L3NATAgentWithStateReport(L3NATAgent):
 
 
 def main(manager='neutron.plugins.cisco.l3.agent.'
-                 'cfg_agent.L3NATAgentWithStateReport'):
+                 'cfg_agent.CiscoCfgAgentWithStateReport'):
     #eventlet.monkey_patch()
     conf = cfg.CONF
-    conf.register_opts(L3NATAgent.OPTS)
+    conf.register_opts(CiscoCfgAgent.OPTS)
     config.register_agent_state_opts_helper(conf)
     config.register_root_helper(conf)
     conf.register_opts(interface.OPTS)
@@ -583,7 +584,7 @@ def main(manager='neutron.plugins.cisco.l3.agent.'
     conf(project='neutron')
     config.setup_logging(conf)
     server = neutron_service.Service.create(
-        binary='neutron-l3-cfg-agent',
+        binary='neutron-cisco-cfg-agent',
         topic=cl3_constants.CFG_AGENT,
         report_interval=cfg.CONF.AGENT.report_interval,
         manager=manager)

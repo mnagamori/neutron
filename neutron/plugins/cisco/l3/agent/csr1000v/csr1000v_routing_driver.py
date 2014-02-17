@@ -26,7 +26,7 @@ import xml.etree.ElementTree as ET
 from ciscoconfparse import CiscoConfParse
 
 from neutron.plugins.cisco.l3.agent.services_api import RoutingDriver
-from neutron.plugins.cisco.l3.common import constants as cl3_constants
+from neutron.plugins.cisco.l3.common import n1kv_constants as n1kv_constants
 
 import cisco_csr_snippets as snippets
 
@@ -119,11 +119,8 @@ class CSR1000vRoutingDriver(RoutingDriver):
         gateway_ip = ip_cidr.split('/')[0]
         subinterface = self._get_interface_name_from_hosting_port(port)
         vlan = self._get_interface_vlan_from_hosting_port(port)
-        self.create_subinterface(subinterface,
-                                       vlan,
-                                       vrf_name,
-                                       gateway_ip,
-                                       netmask)
+        self.create_subinterface(subinterface, vlan, vrf_name,
+                                 gateway_ip, netmask)
 
     def _csr_remove_subinterface(self, ri, port):
         vrf_name = self._csr_get_vrf_name(ri)
@@ -228,11 +225,9 @@ class CSR1000vRoutingDriver(RoutingDriver):
         dest_mask = destination_net.netmask
         next_hop = route['nexthop']
         if action is 'replace':
-            self.add_static_route(dest, dest_mask,
-                                        next_hop, vrf_name)
+            self.add_static_route(dest, dest_mask, next_hop, vrf_name)
         elif action is 'delete':
-            self.remove_static_route(dest, dest_mask,
-                                           next_hop, vrf_name)
+            self.remove_static_route(dest, dest_mask, next_hop, vrf_name)
         else:
             LOG.error(_('Unknown route command %s'), action)
 
@@ -258,8 +253,7 @@ class CSR1000vRoutingDriver(RoutingDriver):
                                                  username=self._csr_user,
                                                  password=self._csr_password,
                                                  device_params={'name': "csr"},
-                                                 timeout=30
-                )
+                                                 timeout=30)
                 #self._csr_conn.async_mode = True
                 if not self._intfs_enabled:
                     self._intfs_enabled = self._enable_intfs(self._csr_conn)
@@ -285,9 +279,9 @@ class CSR1000vRoutingDriver(RoutingDriver):
     def _get_interface_no_from_hosting_port(self, port):
         _name = port['hosting_info']['hosting_port_name']
         if_type = _name.split(':')[0] + ':'
-        if if_type == cl3_constants.T1_PORT_NAME:
+        if if_type == n1kv_constants.T1_PORT_NAME:
             no = str(int(_name.split(':')[1]) * 2)
-        elif if_type == cl3_constants.T2_PORT_NAME:
+        elif if_type == n1kv_constants.T2_PORT_NAME:
             no = str(int(_name.split(':')[1]) * 2 + 1)
         else:
             LOG.error(_('Unknown interface name: %s'), if_type)
@@ -459,7 +453,7 @@ class CSR1000vRoutingDriver(RoutingDriver):
             LOG.error("VRF %s not present" % vrf_name)
         confstr = snippets.SET_INTC_HSRP % (subinterface, vrf_name, group,
                                             priority, group, ip)
-        action = "SET_INTC_HSRP (Group: % s, Priority: % s)" % (group, priority)
+        action = "SET_INTC_HSRP (Group: %s, Priority: % s)" % (group, priority)
         self.edit_running_config(confstr, action)
 
     def _remove_ha_HSRP(self, subinterface, group):
@@ -518,7 +512,7 @@ class CSR1000vRoutingDriver(RoutingDriver):
         rpc_obj = conn.edit_config(target='running', config=confstr)
         print self._check_response(rpc_obj, 'REMOVE_NAT '+type)
 
-    def remove_dyn_nat_rule(self,acl_no, outer_intfc_name, vrf_name):
+    def remove_dyn_nat_rule(self, acl_no, outer_intfc_name, vrf_name):
         conn = self._get_connection()
         confstr = snippets.SNAT_CFG % (acl_no, outer_intfc_name, vrf_name)
         if self._cfg_exists(confstr):
@@ -532,11 +526,10 @@ class CSR1000vRoutingDriver(RoutingDriver):
         rpc_obj = conn.edit_config(target='running', config=confstr)
         print self._check_response(rpc_obj, 'REMOVE_ACL')
 
-
     def remove_dyn_nat_translations(self):
         conn = self._get_connection()
         confstr = snippets.CLEAR_DYN_NAT_TRANS
-        rpc_obj = conn.get(("subtree",confstr))
+        rpc_obj = conn.get(("subtree", confstr))
         print rpc_obj
 
     def add_floating_ip(self, floating_ip, fixed_ip, vrf):
@@ -634,57 +627,3 @@ class CSR1000vRoutingDriver(RoutingDriver):
             return True
         else:
             raise rpc_obj.error
-
-
-##############################
-# Main. Some simple test code
-#############################
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, filemode="w")
-    #driver = CSR1000vRoutingDriver("172.29.74.81", 22, "stack", 'cisco')
-    driver = CSR1000vRoutingDriver("172.16.6.141", 22, "stack", 'cisco')
-    if driver._get_connection():
-        logging.info('Connection Established!')
-        #driver._get_capabilities()
-        #print driver._get_running_config()
-        #driver.set_interface(conn, 'GigabitEthernet1', '10.0.200.1')
-        #driver.get_interfaces(conn)
-        #driver.get_inter
-
-        # face_ip(conn, 'GigabitEthernet1')
-        driver.create_vrf('dummy_vrf')
-        #driver.create_router(1, 'qrouter-dummy2', '10.0.110.1', 11)
-        driver.create_subinterface('GigabitEthernet2.500', '500', 'dummy_vrf', '10.0.100.1', '255.255.255.0')
-        driver.create_subinterface('GigabitEthernet2.600', '600', 'dummy_vrf', '10.0.200.1', '255.255.255.0')
-
-        #driver._set_ha_HSRP('GigabitEthernet2.500', 'dummy_vrf', '30', '888', '10.0.100.100')
-        #driver._remove_ha_HSRP('GigabitEthernet2.500', '888')
-        #driver.remove_subinterface('GigabitEthernet1.11', 'qrouter-131666dc', '10.0.11.1', '11', '255.255.255.0')
-
-        driver.nat_rules_for_internet_access('acl_500', '10.0.100.0', '0.0.0.255',
-                                             'GigabitEthernet2.500', 'GigabitEthernet2.600',
-                                             'dummy_vrf')
-        #driver.remove_nat_rules_for_internet_access('acl_230', '10.0.230.0', '0.0.0.255',
-        #                                     'GigabitEthernet1.230', 'GigabitEthernet2.230',
-        #                                     'qrouter-dummy')
-
-        #driver.add_floating_ip('192.168.0.2', '10.0.10.2', 'qrouter-131666dc')
-        #driver.remove_floating_ip('192.168.0.2', '10.0.10.2', 'qrouter-131666dc')
-        #driver.add_static_route('172.16.0.0', '255.255.0.0', '10.0.20.254', 'qrouter-131666dc')
-        #driver.remove_static_route('172.16.0.0', '255.255.0.0', '10.0.20.254', 'qrouter-131666dc')
-        #driver.remove_vrf('wrong_vrf') #Wrong vrf
-        #driver.create_vrf("my_dummy_vrf")
-        #driver._get_vrfs()
-        #driver.remove_vrf("my_dummy_vrf")
-        #driver._get_floating_ip_cfg()
-        #print driver._check_acl('acl_10', '10.0.3.0', '0.0.0.255')
-        #print driver._check_acl('acl_10', '10.0.4.0', '0.0.0.255')
-        #print driver._check_acl('acl_101', '10.0.3.0', '0.0.0.255')
-        #driver.remove_subinterface('GigabitEthernet2.101', '101', 'qrouter-131666dc', '10.0.11.1')
-        #print driver.if_interface_exists('GigabitEthernet2.10')
-        #print driver.if_interface_exists('GigabitEthernet1.10')
-        # print driver._cfg_exists("ip nat inside source list acl_12 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
-        # print driver._cfg_exists("ip nat inside source list acl_121 interface GigabitEthernet2.100 vrf nrouter-93bff2 overload")
-        #driver.remove_dyn_nat_translations()
-        print "All done"

@@ -196,7 +196,8 @@ SNAT_CFG = "ip nat inside source list %s interface %s vrf %s overload"
 SET_DYN_SRC_TRL_INTFC = """
 <config>
         <cli-config-data>
-            <cmd>ip nat inside source list %s interface %s vrf %s overload</cmd>
+            <cmd>ip nat inside source list %s interface %s
+            vrf %s overload</cmd>
         </cli-config-data>
 </config>
 
@@ -212,7 +213,8 @@ SET_DYN_SRC_TRL_INTFC = """
 REMOVE_DYN_SRC_TRL_INTFC = """
 <config>
         <cli-config-data>
-            <cmd>no ip nat inside source list %s interface %s vrf %s overload</cmd>
+            <cmd>no ip nat inside source list %s interface %s
+            vrf %s overload</cmd>
         </cli-config-data>
 </config>
 
@@ -278,7 +280,7 @@ REMOVE_STATIC_SRC_TRL = """
 
 """
 
-#==============================================================================#
+#=============================================================================#
 # Set ip route
 # Syntax: ip route vrf <vrf-name> <destination> <mask> [<interface>] <next hop>
 # eg: $(config)ip route vrf nrouter-e7d4y5 8.8.0.0  255.255.0.0 10.0.100.255
@@ -291,9 +293,10 @@ SET_IP_ROUTE = """
 </config>
 """
 
-#==============================================================================#
+#=============================================================================#
 # Remove ip route
-# Syntax: no ip route vrf <vrf-name> <destination> <mask> [<interface>] <next hop>
+# Syntax: no ip route vrf <vrf-name> <destination> <mask>
+#        [<interface>] <next hop>
 # eg: $(config)no ip route vrf nrouter-e7d4y5 8.8.0.0  255.255.0.0 10.0.100.255
 #=============================================================================#
 REMOVE_IP_ROUTE = """
@@ -303,7 +306,7 @@ REMOVE_IP_ROUTE = """
         </cli-config-data>
 </config>
 """
-#==============================================================================#
+#=============================================================================#
 # Set default ip route
 # Syntax: ip route vrf <vrf-name> 0.0.0.0 0.0.0.0 [<interface>] <next hop>
 # eg: $(config)ip route vrf nrouter-e7d4y5 0.0.0.0  0.0.0.0 10.0.100.255
@@ -318,7 +321,7 @@ SET_DEFAULT_ROUTE = """
 </config>
 """
 
-#==============================================================================#
+#=============================================================================#
 # Remove default ip route
 # Syntax: ip route vrf <vrf-name> 0.0.0.0 0.0.0.0 [<interface>] <next hop>
 # eg: $(config)ip route vrf nrouter-e7d4y5 0.0.0.0  0.0.0.0 10.0.100.255
@@ -331,7 +334,7 @@ REMOVE_DEFAULT_ROUTE = """
 </config>
 """
 
-#==============================================================================#
+#=============================================================================#
 # Clear dynamic nat translations. This is used to clear any nat bindings before
 # we can turn off NAT on an interface
 # Syntax: clear ip nat translation [forced]
