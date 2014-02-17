@@ -137,7 +137,8 @@ class TestBasicRouterOperations(base.BaseTestCase):
         agent.process_router_floating_ips.assert_called_with(
             ri, ex_gw_port)
         agent.process_router_floating_ips.reset_mock()
-        agent.internal_network_added.assert_called_with(ri, ports[0], ex_gw_port)
+        agent.internal_network_added.assert_called_with(ri, ports[0],
+                                                        ex_gw_port)
         agent.external_gateway_added.assert_called_with(ri, ex_gw_port)
 
         # remap floating IP to a new fixed ip
@@ -322,8 +323,9 @@ class TestBasicRouterOperations(base.BaseTestCase):
             'hosting_entity': self.hosting_entity}
         agent._router_added(router['id'], router)
 
+        hd = self.hosting_entity
         #Simulate book keeping inside the _set_driver() call
-        agent._hdm.router_id_hosting_devices[router['id']] = self.hosting_entity
+        agent._hdm.router_id_hosting_devices[router['id']] = hd
 
         agent.router_deleted(None, router['id'])
         agent._process_router_delete()
